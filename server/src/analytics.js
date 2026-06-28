@@ -208,16 +208,7 @@ export function inferWorkoutTag(workout) {
     "SELECT COUNT(*) as count FROM intervals WHERE workout_id = ? AND type = 'rest'"
   ).get(workout.id)?.count || 0;
 
-  const standardTests = new Set([2000, 5000, 6000, 10000]);
   const hasRest = restCount > 0 || workout.rest_time_ms > 0 || workout.rest_distance > 0;
-
-  if (workout.distance < 2000 && workout.time_ms < 10 * 60 * 1000) {
-    return 'warmup';
-  }
-
-  if (standardTests.has(workout.distance) && !hasRest && intervalCount <= 1) {
-    return 'test';
-  }
 
   if (hasRest || intervalCount >= 2) {
     return 'interval';

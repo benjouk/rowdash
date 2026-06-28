@@ -93,7 +93,7 @@ router.get('/trends', (req, res) => {
              SUM(distance) as distance,
              COUNT(*) as sessions,
              SUM(time_ms) as time_ms,
-             SUM(CASE WHEN inferred_tag IN ('endurance', 'steady', 'test', 'warmup') THEN distance ELSE 0 END) as steady_m,
+             SUM(CASE WHEN inferred_tag = 'interval' THEN 0 ELSE distance END) as steady_m,
              SUM(CASE WHEN inferred_tag = 'interval' THEN distance ELSE 0 END) as interval_m
       FROM workouts
       WHERE type = 'rower' AND date >= ?${toFilter}
@@ -104,7 +104,8 @@ router.get('/trends', (req, res) => {
 
   if (metric === 'pace') {
     const rows = db.prepare(`
-      SELECT date, pace_ms, distance, inferred_tag
+      SELECT date, pace_ms, distance,
+             CASE WHEN inferred_tag = 'interval' THEN 'interval' ELSE 'endurance' END as inferred_tag
       FROM workouts
       WHERE type = 'rower' AND pace_ms > 0 AND date >= ?${toFilter}
       ORDER BY date
@@ -135,7 +136,8 @@ router.get('/trends', (req, res) => {
 
   if (metric === 'effort') {
     const rows = db.prepare(`
-      SELECT w.date, cm.effort_score, w.distance, w.inferred_tag
+      SELECT w.date, cm.effort_score, w.distance,
+             CASE WHEN w.inferred_tag = 'interval' THEN 'interval' ELSE 'endurance' END as inferred_tag
       FROM workouts w
       JOIN computed_metrics cm ON w.id = cm.workout_id
       WHERE w.type = 'rower' AND cm.effort_score IS NOT NULL AND w.date >= ?${toFilter}
