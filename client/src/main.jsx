@@ -12,8 +12,8 @@ import './styles/global.css';
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
-      <ThemeProvider>
-        <AuthProvider>
+      <AuthProvider>
+        <ThemeProvider>
           <SyncProvider>
             <UnitsProvider>
               <TimeRangeProvider>
@@ -21,8 +21,8 @@ createRoot(document.getElementById('root')).render(
               </TimeRangeProvider>
             </UnitsProvider>
           </SyncProvider>
-        </AuthProvider>
-      </ThemeProvider>
+        </ThemeProvider>
+      </AuthProvider>
     </BrowserRouter>
   </StrictMode>
 );

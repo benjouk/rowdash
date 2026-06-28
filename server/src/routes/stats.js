@@ -93,7 +93,7 @@ router.get('/trends', (req, res) => {
              SUM(distance) as distance,
              COUNT(*) as sessions,
              SUM(time_ms) as time_ms,
-             SUM(CASE WHEN inferred_tag = 'steady' THEN distance ELSE 0 END) as steady_m,
+             SUM(CASE WHEN inferred_tag IN ('endurance', 'steady', 'test', 'warmup') THEN distance ELSE 0 END) as steady_m,
              SUM(CASE WHEN inferred_tag = 'interval' THEN distance ELSE 0 END) as interval_m
       FROM workouts
       WHERE type = 'rower' AND date >= ?${toFilter}
@@ -133,6 +133,17 @@ router.get('/trends', (req, res) => {
     return res.json({ consistency_trend: rows });
   }
 
+  if (metric === 'effort') {
+    const rows = db.prepare(`
+      SELECT w.date, cm.effort_score, w.distance, w.inferred_tag
+      FROM workouts w
+      JOIN computed_metrics cm ON w.id = cm.workout_id
+      WHERE w.type = 'rower' AND cm.effort_score IS NOT NULL AND w.date >= ?${toFilter}
+      ORDER BY w.date
+    `).all(from, ...toParam);
+    return res.json({ effort_trend: rows });
+  }
+
   res.json({});
 });
 
@@ -149,10 +160,13 @@ router.get('/personal-bests', (req, res) => {
   const pbs = [];
   for (const dist of standardDistances) {
     const row = db.prepare(`
-      SELECT id, date, time_ms, pace_ms, distance
-      FROM workouts
-      WHERE type = 'rower' AND distance = ? AND pace_ms > 0${dateFilter}
-      ORDER BY pace_ms ASC LIMIT 1
+      SELECT
+        w.id, w.date, w.time_ms, w.pace_ms, w.distance,
+        p.predicted_time, p.confidence, p.window_start, p.window_end
+      FROM workouts w
+      LEFT JOIN predictions p ON p.distance = w.distance
+      WHERE w.type = 'rower' AND w.distance = ? AND w.pace_ms > 0${dateFilter}
+      ORDER BY w.pace_ms ASC LIMIT 1
     `).get(dist, ...dateParams);
 
     if (row) {
@@ -162,6 +176,12 @@ router.get('/personal-bests', (req, res) => {
         date: row.date,
         time_ms: row.time_ms,
         pace_ms: row.pace_ms,
+        prediction: row.predicted_time ? {
+          predicted_time: row.predicted_time,
+          confidence: row.confidence,
+          window_start: row.window_start,
+          window_end: row.window_end,
+        } : null,
       });
     }
   }

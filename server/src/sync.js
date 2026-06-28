@@ -1,7 +1,7 @@
 import cron from 'node-cron';
 import { getDb } from './db.js';
 import { getValidToken, fetchC2Api } from './auth.js';
-import { tagAllWorkouts, computeAllMetrics, computeFitnessLog } from './analytics.js';
+import { tagAllWorkouts, computeAllMetrics, computeFitnessLog, computePredictions } from './analytics.js';
 
 let syncInProgress = false;
 
@@ -196,6 +196,7 @@ function runPostSyncAnalytics() {
     tagAllWorkouts();
     computeAllMetrics();
     computeFitnessLog();
+    computePredictions();
     console.log('Post-sync analytics complete');
   } catch (err) {
     console.error('Post-sync analytics error:', err);

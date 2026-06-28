@@ -21,13 +21,19 @@ function formatRelativeDate(dateStr) {
 }
 
 const TAG_CLASS = {
+  endurance: styles.tagSteady,
   steady: styles.tagSteady,
   interval: styles.tagInterval,
+  test: styles.tagTest,
+  warmup: styles.tagWarmup,
 };
 
 function workoutTitle(w) {
   const dist = w.distance >= 1000 ? `${(w.distance / 1000).toFixed(w.distance % 1000 === 0 ? 0 : 1)}k` : `${w.distance}m`;
-  return w.inferred_tag === 'interval' ? `${dist} intervals` : `${dist} steady`;
+  if (w.inferred_tag === 'interval') return `${dist} intervals`;
+  if (w.inferred_tag === 'test') return `${dist} test`;
+  if (w.inferred_tag === 'warmup') return `${dist} warmup`;
+  return `${dist} endurance`;
 }
 
 export default function FeedPanel() {
@@ -78,6 +84,16 @@ export default function FeedPanel() {
               {w.stroke_rate ? ` · ${w.stroke_rate}spm` : ''}
             </span>
           </div>
+          {w.pace_profile?.length >= 2 && (
+            <div className={styles.sparklineRow}>
+              <Sparkline
+                data={w.pace_profile}
+                color={w.inferred_tag === 'interval' ? 'var(--accent-2)' : 'var(--accent)'}
+                width={96}
+                height={20}
+              />
+            </div>
+          )}
         </div>
       ))}
     </div>

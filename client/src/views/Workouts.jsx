@@ -5,7 +5,7 @@ import { api } from '../api.js';
 import { useUnits } from '../context/UnitsContext.jsx';
 import { useTimeRange } from '../context/TimeRangeContext.jsx';
 
-const TAGS = ['', 'steady', 'interval'];
+const TAGS = ['', 'endurance', 'interval', 'test', 'warmup'];
 
 export default function Workouts() {
   const [workouts, setWorkouts] = useState([]);
@@ -47,20 +47,52 @@ export default function Workouts() {
     return null;
   };
 
-  const exportCsv = () => {
-    const headers = ['Date', 'Tag', 'Distance', 'Time', 'Pace', 'Rate', 'HR', 'Calories'];
-    const rows = workouts.map(w => [
-      w.date, w.inferred_tag || '', w.distance, formatTime(w.time_ms),
-      formatPace(w.pace_ms), w.stroke_rate || '', w.heart_rate_avg || '', w.calories || '',
-    ]);
-    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
+  const exportRows = useCallback(async () => {
+    const pageSize = 100;
+    let nextOffset = 0;
+    let allRows = [];
+    let expectedTotal = null;
+
+    do {
+      const params = { limit: pageSize, offset: nextOffset, sort };
+      if (tag) params.tag = tag;
+      if (from) params.from = from;
+      if (to) params.to = to;
+
+      const data = await api.getWorkouts(params);
+      const rows = data.data || [];
+      allRows = allRows.concat(rows);
+      expectedTotal = data.meta?.total ?? allRows.length;
+      nextOffset += pageSize;
+    } while (allRows.length < expectedTotal);
+
+    return allRows;
+  }, [sort, tag, from, to]);
+
+  const downloadBlob = (content, type, filename) => {
+    const blob = new Blob([content], { type });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'rowdash-workouts.csv';
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const exportCsv = async () => {
+    const rowsToExport = await exportRows();
+    const headers = ['Date', 'Tag', 'Distance', 'Time', 'Pace', 'Rate', 'HR', 'Calories'];
+    const rows = rowsToExport.map(w => [
+      w.date, w.inferred_tag || '', w.distance, formatTime(w.time_ms),
+      formatPace(w.pace_ms), w.stroke_rate || '', w.heart_rate_avg || '', w.calories || '',
+    ]);
+    const csv = [headers, ...rows].map(row => row.map(csvCell).join(',')).join('\n');
+    downloadBlob(csv, 'text/csv', 'rowdash-workouts.csv');
+  };
+
+  const exportJson = async () => {
+    const rowsToExport = await exportRows();
+    downloadBlob(JSON.stringify({ workouts: rowsToExport }, null, 2), 'application/json', 'rowdash-workouts.json');
   };
 
   return (
@@ -70,14 +102,14 @@ export default function Workouts() {
           fontFamily: 'var(--font-display)', fontSize: '1.3rem', fontWeight: 700,
           letterSpacing: '-0.02em', color: 'var(--ink)',
         }}>Workouts</h2>
-        <button onClick={exportCsv} style={{
-          display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-          padding: 'var(--space-2) var(--space-3)', borderRadius: 'var(--radius-sm)',
-          border: '1px solid var(--rule)', color: 'var(--ink-2)', fontSize: '0.8rem',
-          background: 'var(--surface)',
-        }}>
-          <Download size={14} /> Export CSV
-        </button>
+        <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+          <button onClick={exportJson} style={exportBtnStyle}>
+            <Download size={14} /> JSON
+          </button>
+          <button onClick={exportCsv} style={exportBtnStyle}>
+            <Download size={14} /> CSV
+          </button>
+        </div>
       </div>
 
       <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
@@ -151,7 +183,13 @@ function Th({ children, onClick }) {
 }
 
 function TagBadge({ tag }) {
-  const colors = { steady: 'var(--accent)', interval: 'var(--accent-2)' };
+  const colors = {
+    endurance: 'var(--accent)',
+    steady: 'var(--accent)',
+    interval: 'var(--accent-2)',
+    test: 'var(--hot)',
+    warmup: 'var(--ink-2)',
+  };
   const color = colors[tag] || 'var(--ink-3)';
   return (
     <span style={{
@@ -162,9 +200,20 @@ function TagBadge({ tag }) {
   );
 }
 
+function csvCell(value) {
+  const text = value == null ? '' : String(value);
+  return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
 const tdStyle = { padding: '8px 10px' };
 const btnStyle = {
   padding: 'var(--space-2) var(--space-3)', borderRadius: 'var(--radius-sm)',
   border: '1px solid var(--rule)', background: 'var(--surface)', color: 'var(--ink-2)',
   fontSize: '0.8rem', cursor: 'pointer',
+};
+const exportBtnStyle = {
+  display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
+  padding: 'var(--space-2) var(--space-3)', borderRadius: 'var(--radius-sm)',
+  border: '1px solid var(--rule)', color: 'var(--ink-2)', fontSize: '0.8rem',
+  background: 'var(--surface)',
 };

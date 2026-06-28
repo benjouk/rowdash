@@ -1,5 +1,5 @@
 import { initDb, getDb } from './db.js';
-import { computeMetricsForWorkout, computeFitnessLog, tagAllWorkouts } from './analytics.js';
+import { computeMetricsForWorkout, computeFitnessLog, tagAllWorkouts, computePredictions } from './analytics.js';
 
 function seededRandom(seed) {
   let s = seed;
@@ -248,6 +248,9 @@ export function seedDatabase() {
 
   computeFitnessLog();
   console.log('Computed fitness log');
+
+  computePredictions();
+  console.log('Computed predictions');
 
   for (const w of workouts) {
     if (w.strokes) {

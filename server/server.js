@@ -7,10 +7,10 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { initDb, getDb } from './src/db.js';
 import { startSyncSchedule } from './src/sync.js';
-import { isAuthenticated } from './src/auth.js';
+import { hasValidSession, isAuthenticated } from './src/auth.js';
 import { errorHandler } from './src/middleware/error.js';
 import { seedDatabase } from './src/seed.js';
-import { tagAllWorkouts, computeAllMetrics, computeFitnessLog } from './src/analytics.js';
+import { tagAllWorkouts, computeAllMetrics, computeFitnessLog, computePredictions } from './src/analytics.js';
 
 import healthRouter from './src/routes/health.js';
 import authRouter from './src/routes/auth.js';
@@ -43,7 +43,7 @@ function requireAuth(req, res, next) {
   if (process.env.NODE_ENV !== 'production') {
     return next();
   }
-  if (!isAuthenticated()) {
+  if (!isAuthenticated() || !hasValidSession(req)) {
     return res.status(401).json({ error: 'Not authenticated' });
   }
   next();
@@ -53,7 +53,7 @@ app.use('/api/workouts', requireAuth, workoutsRouter);
 app.use('/api/stats', requireAuth, statsRouter);
 app.use('/api/sync', requireAuth, syncRouter);
 app.use('/api/ai', requireAuth, aiRouter);
-app.use('/api/settings', settingsRouter);
+app.use('/api/settings', requireAuth, settingsRouter);
 
 const distPath = join(__dirname, 'dist');
 app.use(express.static(distPath));
@@ -72,6 +72,7 @@ recomputePacesIfMissing();
 tagAllWorkouts();
 computeAllMetrics();
 computeFitnessLog();
+computePredictions();
 
 if (isAuthenticated()) {
   startSyncSchedule();

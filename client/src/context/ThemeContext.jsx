@@ -1,11 +1,20 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { api } from '../api.js';
 
 const ThemeContext = createContext();
 
 export function ThemeProvider({ children }) {
-  const [theme, setThemeState] = useState(() => {
-    return localStorage.getItem('rowdash-theme') || 'system';
-  });
+  const [theme, setThemeState] = useState('system');
+
+  useEffect(() => {
+    api.getSettings()
+      .then(settings => {
+        if (['system', 'light', 'dark'].includes(settings.theme)) {
+          setThemeState(settings.theme);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const resolveTheme = useCallback((t) => {
     if (t === 'system') {
@@ -16,7 +25,6 @@ export function ThemeProvider({ children }) {
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', resolveTheme(theme));
-    localStorage.setItem('rowdash-theme', theme);
   }, [theme, resolveTheme]);
 
   useEffect(() => {
@@ -31,12 +39,15 @@ export function ThemeProvider({ children }) {
 
   const setTheme = useCallback((t) => {
     setThemeState(t);
+    api.updateSettings({ theme: t }).catch(() => {});
   }, []);
 
   const toggleTheme = useCallback(() => {
     setThemeState(prev => {
       const resolved = resolveTheme(prev);
-      return resolved === 'dark' ? 'light' : 'dark';
+      const next = resolved === 'dark' ? 'light' : 'dark';
+      api.updateSettings({ theme: next }).catch(() => {});
+      return next;
     });
   }, [resolveTheme]);
 
