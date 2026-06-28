@@ -9,7 +9,7 @@ import {
   clearAuth,
   fetchC2Api,
 } from '../auth.js';
-import { runFullSync } from '../sync.js';
+import { runFullSync, startSyncSchedule } from '../sync.js';
 
 const router = Router();
 
@@ -40,6 +40,7 @@ router.get('/callback', async (req, res) => {
     );
 
     runFullSync().catch(err => console.error('Initial sync failed:', err));
+    startSyncSchedule();
 
     res.redirect('/?connected=true');
   } catch (err) {

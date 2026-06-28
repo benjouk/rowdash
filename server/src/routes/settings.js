@@ -19,7 +19,7 @@ router.patch('/', (req, res) => {
     'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)'
   );
 
-  const allowedKeys = ['theme', 'units', 'sync_interval'];
+  const allowedKeys = ['theme', 'units', 'sync_interval', 'time_range'];
   const updates = {};
 
   db.transaction(() => {

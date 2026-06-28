@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '../../api.js';
 import { useUnits } from '../../context/UnitsContext.jsx';
+import { useTimeRange } from '../../context/TimeRangeContext.jsx';
 import styles from './Stats.module.css';
 
 const DISTANCE_LABELS = {
@@ -17,12 +18,16 @@ const DISTANCE_LABELS = {
 export default function PBStrip() {
   const [pbs, setPbs] = useState([]);
   const { formatPace, formatTime } = useUnits();
+  const { from, to } = useTimeRange();
 
   useEffect(() => {
-    api.getPersonalBests()
+    const params = {};
+    if (from) params.from = from;
+    if (to) params.to = to;
+    api.getPersonalBests(params)
       .then(d => setPbs(d.personal_bests || []))
       .catch(() => {});
-  }, []);
+  }, [from, to]);
 
   if (pbs.length === 0) return null;
 

@@ -5,13 +5,19 @@ const router = Router();
 
 router.get('/summary', (req, res) => {
   const db = getDb();
+  const { from, to } = req.query;
+
+  let dateFilter = '';
+  const dateParams = [];
+  if (from) { dateFilter += ' AND date >= ?'; dateParams.push(from); }
+  if (to) { dateFilter += ' AND date < ?'; dateParams.push(to); }
 
   const totals = db.prepare(`
     SELECT COUNT(*) as total_workouts,
            COALESCE(SUM(distance), 0) as total_meters,
            COALESCE(SUM(time_ms), 0) as total_time_ms
-    FROM workouts WHERE type = 'rower'
-  `).get();
+    FROM workouts WHERE type = 'rower'${dateFilter}
+  `).get(...dateParams);
 
   const now = new Date();
   const seasonStart = now.getMonth() >= 4
@@ -21,30 +27,13 @@ router.get('/summary', (req, res) => {
   const season = db.prepare(`
     SELECT COALESCE(SUM(distance), 0) as season_meters,
            COUNT(*) as season_workouts
-    FROM workouts WHERE type = 'rower' AND date >= ?
-  `).get(seasonStart);
+    FROM workouts WHERE type = 'rower' AND date >= ?${dateFilter}
+  `).get(seasonStart, ...dateParams);
 
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
-  const sixtyDaysAgo = new Date(Date.now() - 60 * 86400000).toISOString().slice(0, 10);
-
-  const pace30d = db.prepare(`
-    SELECT AVG(pace_ms) as avg_pace, COUNT(*) as count FROM workouts
-    WHERE type = 'rower' AND pace_ms > 0 AND date >= ?
-  `).get(thirtyDaysAgo);
-
-  const pacePrior30d = db.prepare(`
+  const avgPaceRow = db.prepare(`
     SELECT AVG(pace_ms) as avg_pace FROM workouts
-    WHERE type = 'rower' AND pace_ms > 0 AND date >= ? AND date < ?
-  `).get(sixtyDaysAgo, thirtyDaysAgo);
-
-  const paceAll = db.prepare(`
-    SELECT AVG(pace_ms) as avg_pace FROM workouts
-    WHERE type = 'rower' AND pace_ms > 0
-  `).get();
-
-  const hasRecentData = pace30d?.count > 0;
-  const avgPace = hasRecentData ? pace30d.avg_pace : paceAll?.avg_pace;
-  const avgPacePrior = hasRecentData ? pacePrior30d?.avg_pace : null;
+    WHERE type = 'rower' AND pace_ms > 0${dateFilter}
+  `).get(...dateParams);
 
   const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
   const thisWeek = db.prepare(`
@@ -55,8 +44,8 @@ router.get('/summary', (req, res) => {
   const streak = computeWeekStreak(db);
 
   const lastWorkout = db.prepare(`
-    SELECT date FROM workouts WHERE type = 'rower' ORDER BY date DESC LIMIT 1
-  `).get();
+    SELECT date FROM workouts WHERE type = 'rower'${dateFilter} ORDER BY date DESC LIMIT 1
+  `).get(...dateParams);
 
   res.json({
     total_meters: totals.total_meters,
@@ -64,9 +53,7 @@ router.get('/summary', (req, res) => {
     total_time_ms: totals.total_time_ms,
     season_meters: season.season_meters,
     season_workouts: season.season_workouts,
-    avg_pace: avgPace ? Math.round(avgPace) : null,
-    avg_pace_prior: avgPacePrior ? Math.round(avgPacePrior) : null,
-    avg_pace_label: hasRecentData ? '30d Avg Pace' : 'Avg Pace',
+    avg_pace: avgPaceRow?.avg_pace ? Math.round(avgPaceRow.avg_pace) : null,
     sessions_this_week: thisWeek.count,
     current_streak_weeks: streak,
     last_workout_date: lastWorkout?.date || null,
@@ -76,29 +63,42 @@ router.get('/summary', (req, res) => {
 router.get('/trends', (req, res) => {
   const db = getDb();
   const { metric = 'volume', period = '12w' } = req.query;
+  const qFrom = req.query.from;
+  const qTo = req.query.to;
 
-  let fromDate;
-  if (period === 'all') fromDate = new Date(0);
-  else if (period === '12w') fromDate = new Date(Date.now() - 84 * 86400000);
-  else if (period === '30d') fromDate = new Date(Date.now() - 30 * 86400000);
-  else if (period === '90d') fromDate = new Date(Date.now() - 90 * 86400000);
-  else if (period === '1y') fromDate = new Date(Date.now() - 365 * 86400000);
-  else fromDate = new Date(0);
+  let from;
+  if (qFrom) {
+    from = qFrom;
+  } else if (period === 'all') {
+    from = new Date(0).toISOString().slice(0, 10);
+  } else if (period === '12w') {
+    from = new Date(Date.now() - 84 * 86400000).toISOString().slice(0, 10);
+  } else if (period === '30d') {
+    from = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+  } else if (period === '90d') {
+    from = new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 10);
+  } else if (period === '1y') {
+    from = new Date(Date.now() - 365 * 86400000).toISOString().slice(0, 10);
+  } else {
+    from = new Date(0).toISOString().slice(0, 10);
+  }
 
-  const from = fromDate.toISOString().slice(0, 10);
+  const toFilter = qTo ? ' AND date < ?' : '';
+  const toParam = qTo ? [qTo] : [];
 
   if (metric === 'volume') {
     const rows = db.prepare(`
       SELECT strftime('%Y-W%W', date) as week,
+             MIN(date) as week_start,
              SUM(distance) as distance,
              COUNT(*) as sessions,
              SUM(time_ms) as time_ms,
-             SUM(CASE WHEN inferred_tag = 'endurance' THEN distance ELSE 0 END) as endurance_m,
+             SUM(CASE WHEN inferred_tag = 'steady' THEN distance ELSE 0 END) as steady_m,
              SUM(CASE WHEN inferred_tag = 'interval' THEN distance ELSE 0 END) as interval_m
       FROM workouts
-      WHERE type = 'rower' AND date >= ?
-      GROUP BY week ORDER BY week
-    `).all(from);
+      WHERE type = 'rower' AND date >= ?${toFilter}
+      GROUP BY week ORDER BY week_start
+    `).all(from, ...toParam);
     return res.json({ weekly_volume: rows });
   }
 
@@ -106,9 +106,9 @@ router.get('/trends', (req, res) => {
     const rows = db.prepare(`
       SELECT date, pace_ms, distance, inferred_tag
       FROM workouts
-      WHERE type = 'rower' AND pace_ms > 0 AND date >= ?
+      WHERE type = 'rower' AND pace_ms > 0 AND date >= ?${toFilter}
       ORDER BY date
-    `).all(from);
+    `).all(from, ...toParam);
     return res.json({ pace_trend: rows });
   }
 
@@ -116,9 +116,9 @@ router.get('/trends', (req, res) => {
     const rows = db.prepare(`
       SELECT date, stroke_rate, distance
       FROM workouts
-      WHERE type = 'rower' AND stroke_rate > 0 AND date >= ?
+      WHERE type = 'rower' AND stroke_rate > 0 AND date >= ?${toFilter}
       ORDER BY date
-    `).all(from);
+    `).all(from, ...toParam);
     return res.json({ rate_trend: rows });
   }
 
@@ -127,9 +127,9 @@ router.get('/trends', (req, res) => {
       SELECT w.date, cm.consistency, w.distance
       FROM workouts w
       JOIN computed_metrics cm ON w.id = cm.workout_id
-      WHERE w.type = 'rower' AND cm.consistency IS NOT NULL AND w.date >= ?
+      WHERE w.type = 'rower' AND cm.consistency IS NOT NULL AND w.date >= ?${toFilter}
       ORDER BY w.date
-    `).all(from);
+    `).all(from, ...toParam);
     return res.json({ consistency_trend: rows });
   }
 
@@ -138,16 +138,22 @@ router.get('/trends', (req, res) => {
 
 router.get('/personal-bests', (req, res) => {
   const db = getDb();
+  const { from, to } = req.query;
   const standardDistances = [500, 1000, 2000, 5000, 6000, 10000, 21097, 42195];
+
+  let dateFilter = '';
+  const dateParams = [];
+  if (from) { dateFilter += ' AND date >= ?'; dateParams.push(from); }
+  if (to) { dateFilter += ' AND date < ?'; dateParams.push(to); }
 
   const pbs = [];
   for (const dist of standardDistances) {
     const row = db.prepare(`
       SELECT id, date, time_ms, pace_ms, distance
       FROM workouts
-      WHERE type = 'rower' AND distance = ? AND pace_ms > 0
+      WHERE type = 'rower' AND distance = ? AND pace_ms > 0${dateFilter}
       ORDER BY pace_ms ASC LIMIT 1
-    `).get(dist);
+    `).get(dist, ...dateParams);
 
     if (row) {
       pbs.push({

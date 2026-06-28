@@ -2,13 +2,12 @@ import { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Dot } from 'recharts';
 import { api } from '../../api.js';
 import { useUnits } from '../../context/UnitsContext.jsx';
+import { useTimeRange } from '../../context/TimeRangeContext.jsx';
 import styles from './Charts.module.css';
 
 const TAG_COLORS = {
-  endurance: 'var(--accent)',
+  steady: 'var(--accent)',
   interval: 'var(--accent-2)',
-  test: 'var(--hot)',
-  warmup: 'var(--ink-3)',
 };
 
 function CustomDot(props) {
@@ -20,17 +19,16 @@ function CustomDot(props) {
 export default function PaceChart() {
   const [data, setData] = useState([]);
   const { formatPace } = useUnits();
+  const { from, to } = useTimeRange();
 
   useEffect(() => {
-    api.getTrends({ metric: 'pace', period: '90d' })
-      .then(d => {
-        const rows = d.pace_trend || [];
-        if (rows.length > 0) return setData(rows);
-        return api.getTrends({ metric: 'pace', period: 'all' })
-          .then(d2 => setData(d2.pace_trend || []));
-      })
+    const params = { metric: 'pace', period: 'all' };
+    if (from) params.from = from;
+    if (to) params.to = to;
+    api.getTrends(params)
+      .then(d => setData(d.pace_trend || []))
       .catch(() => {});
-  }, []);
+  }, [from, to]);
 
   if (data.length === 0) return null;
 

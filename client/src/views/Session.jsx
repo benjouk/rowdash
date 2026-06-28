@@ -26,7 +26,7 @@ export default function Session() {
   if (!workout) return <div style={{ padding: 'var(--space-6)', color: 'var(--ink-3)' }}>Workout not found</div>;
 
   const tag = workout.inferred_tag;
-  const tagColor = tag === 'interval' ? 'var(--accent-2)' : tag === 'test' ? 'var(--hot)' : 'var(--accent)';
+  const tagColor = tag === 'interval' ? 'var(--accent-2)' : 'var(--accent)';
 
   const strokePaceData = workout.strokes?.length > 0
     ? workout.strokes.filter((_, i) => i % Math.max(1, Math.floor(workout.strokes.length / 200)) === 0)

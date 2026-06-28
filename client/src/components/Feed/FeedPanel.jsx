@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../../api.js';
 import { useUnits } from '../../context/UnitsContext.jsx';
+import { useTimeRange } from '../../context/TimeRangeContext.jsx';
 import Sparkline from './Sparkline.jsx';
 import styles from './Feed.module.css';
 
@@ -20,18 +21,13 @@ function formatRelativeDate(dateStr) {
 }
 
 const TAG_CLASS = {
-  endurance: styles.tagEndurance,
+  steady: styles.tagSteady,
   interval: styles.tagInterval,
-  test: styles.tagTest,
-  warmup: styles.tagWarmup,
 };
 
 function workoutTitle(w) {
   const dist = w.distance >= 1000 ? `${(w.distance / 1000).toFixed(w.distance % 1000 === 0 ? 0 : 1)}k` : `${w.distance}m`;
-  if (w.inferred_tag === 'interval') return `${dist} intervals`;
-  if (w.inferred_tag === 'test') return `${dist} test`;
-  if (w.inferred_tag === 'warmup') return `${dist} warmup`;
-  return `${dist} steady`;
+  return w.inferred_tag === 'interval' ? `${dist} intervals` : `${dist} steady`;
 }
 
 export default function FeedPanel() {
@@ -39,12 +35,16 @@ export default function FeedPanel() {
   const navigate = useNavigate();
   const params = useParams();
   const { formatPace, formatDistance, formatTime } = useUnits();
+  const { from, to } = useTimeRange();
 
   useEffect(() => {
-    api.getWorkouts({ limit: 50, sort: 'date_desc' })
+    const p = { limit: 50, sort: 'date_desc' };
+    if (from) p.from = from;
+    if (to) p.to = to;
+    api.getWorkouts(p)
       .then(data => setWorkouts(data.data || []))
       .catch(() => {});
-  }, []);
+  }, [from, to]);
 
   if (workouts.length === 0) return (
     <div className={styles.feed}>

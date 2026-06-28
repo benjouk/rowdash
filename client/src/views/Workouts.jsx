@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { Download, ChevronUp, ChevronDown } from 'lucide-react';
 import { api } from '../api.js';
 import { useUnits } from '../context/UnitsContext.jsx';
+import { useTimeRange } from '../context/TimeRangeContext.jsx';
 
-const TAGS = ['', 'endurance', 'interval', 'test', 'warmup'];
+const TAGS = ['', 'steady', 'interval'];
 
 export default function Workouts() {
   const [workouts, setWorkouts] = useState([]);
@@ -14,18 +15,21 @@ export default function Workouts() {
   const [tag, setTag] = useState('');
   const navigate = useNavigate();
   const { formatPace, formatDistanceFull, formatTime } = useUnits();
+  const { from, to } = useTimeRange();
   const limit = 20;
 
   const load = useCallback(() => {
     const params = { limit, offset, sort };
     if (tag) params.tag = tag;
+    if (from) params.from = from;
+    if (to) params.to = to;
     api.getWorkouts(params)
       .then(data => {
         setWorkouts(data.data || []);
         setTotal(data.meta?.total || 0);
       })
       .catch(() => {});
-  }, [offset, sort, tag]);
+  }, [offset, sort, tag, from, to]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -147,7 +151,7 @@ function Th({ children, onClick }) {
 }
 
 function TagBadge({ tag }) {
-  const colors = { endurance: 'var(--accent)', interval: 'var(--accent-2)', test: 'var(--hot)', warmup: 'var(--ink-3)' };
+  const colors = { steady: 'var(--accent)', interval: 'var(--accent-2)' };
   const color = colors[tag] || 'var(--ink-3)';
   return (
     <span style={{
