@@ -66,16 +66,6 @@
   background: var(--accent-2-bg);
 }
 
-.tagTest {
-  color: var(--hot);
-  background: var(--hot-bg);
-}
-
-.tagWarmup {
-  color: var(--ink-2);
-  background: var(--surface-alt);
-}
-
 .itemTitle {
   font-size: 0.8rem;
   font-weight: 600;

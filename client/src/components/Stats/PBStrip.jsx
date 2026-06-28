@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../../api.js';
 import { useUnits } from '../../context/UnitsContext.jsx';
 import { useTimeRange } from '../../context/TimeRangeContext.jsx';
@@ -17,6 +18,7 @@ const DISTANCE_LABELS = {
 
 export default function PBStrip() {
   const [pbs, setPbs] = useState([]);
+  const navigate = useNavigate();
   const { formatPace, formatTime } = useUnits();
   const { from, to } = useTimeRange();
 
@@ -34,7 +36,13 @@ export default function PBStrip() {
   return (
     <div className={styles.pbStrip}>
       {pbs.map(pb => (
-        <div key={pb.distance} className={`${styles.pbCard} ${pb.prediction?.window_start ? styles.pbCardPredicted : ''}`}>
+        <button
+          key={pb.distance}
+          type="button"
+          className={`${styles.pbCard} ${pb.prediction?.window_start ? styles.pbCardPredicted : ''}`}
+          onClick={() => navigate(`/session/${pb.workout_id}`)}
+          aria-label={`Open ${DISTANCE_LABELS[pb.distance] || `${pb.distance}m`} personal best`}
+        >
           <span className={styles.pbDistance}>{DISTANCE_LABELS[pb.distance] || `${pb.distance}m`}</span>
           <span className={styles.pbTime}>{formatTime(pb.time_ms)}</span>
           <span className={styles.pbPace}>{formatPace(pb.pace_ms)}</span>
@@ -44,7 +52,7 @@ export default function PBStrip() {
               Window {new Date(pb.prediction.window_start).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
             </span>
           )}
-        </div>
+        </button>
       ))}
     </div>
   );

@@ -6,7 +6,7 @@ import { useTimeRange } from '../../context/TimeRangeContext.jsx';
 import styles from './Charts.module.css';
 
 const TAG_COLORS = {
-  steady: 'var(--accent)',
+  endurance: 'var(--accent)',
   interval: 'var(--accent-2)',
 };
 

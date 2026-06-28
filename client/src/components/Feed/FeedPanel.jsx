@@ -22,17 +22,12 @@ function formatRelativeDate(dateStr) {
 
 const TAG_CLASS = {
   endurance: styles.tagSteady,
-  steady: styles.tagSteady,
   interval: styles.tagInterval,
-  test: styles.tagTest,
-  warmup: styles.tagWarmup,
 };
 
 function workoutTitle(w) {
   const dist = w.distance >= 1000 ? `${(w.distance / 1000).toFixed(w.distance % 1000 === 0 ? 0 : 1)}k` : `${w.distance}m`;
   if (w.inferred_tag === 'interval') return `${dist} intervals`;
-  if (w.inferred_tag === 'test') return `${dist} test`;
-  if (w.inferred_tag === 'warmup') return `${dist} warmup`;
   return `${dist} endurance`;
 }
 

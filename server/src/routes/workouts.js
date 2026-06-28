@@ -26,7 +26,7 @@ router.get('/', (req, res) => {
   if (from) { conditions.push('w.date >= ?'); params.push(from); }
   if (to) { conditions.push('w.date <= ?'); params.push(to); }
   if (type) { conditions.push('w.type = ?'); params.push(type); }
-  if (tag) { conditions.push('w.inferred_tag = ?'); params.push(tag); }
+  if (tag) { addTagCondition(conditions, params, tag); }
   if (min_distance) { conditions.push('w.distance >= ?'); params.push(Number(min_distance)); }
   if (max_distance) { conditions.push('w.distance <= ?'); params.push(Number(max_distance)); }
 
@@ -97,7 +97,7 @@ function formatWorkout(row) {
     date: row.date,
     type: row.type,
     workout_type: row.workout_type,
-    inferred_tag: row.inferred_tag,
+    inferred_tag: normalizeWorkoutTag(row.inferred_tag),
     distance: row.distance,
     time_ms: row.time_ms,
     pace_ms: row.pace_ms,
@@ -116,6 +116,21 @@ function formatWorkout(row) {
       drag_delta: row.drag_delta,
     },
   };
+}
+
+function normalizeWorkoutTag(tag) {
+  return tag === 'interval' ? 'interval' : 'endurance';
+}
+
+function addTagCondition(conditions, params, tag) {
+  const normalizedTag = normalizeWorkoutTag(tag);
+  if (normalizedTag === 'interval') {
+    conditions.push('w.inferred_tag = ?');
+    params.push('interval');
+    return;
+  }
+
+  conditions.push("(w.inferred_tag IS NULL OR w.inferred_tag != 'interval')");
 }
 
 function getPaceProfile(db, workoutId) {

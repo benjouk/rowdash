@@ -5,7 +5,7 @@ import { api } from '../api.js';
 import { useUnits } from '../context/UnitsContext.jsx';
 import { useTimeRange } from '../context/TimeRangeContext.jsx';
 
-const TAGS = ['', 'endurance', 'interval', 'test', 'warmup'];
+const TAGS = ['', 'endurance', 'interval'];
 
 export default function Workouts() {
   const [workouts, setWorkouts] = useState([]);
@@ -185,10 +185,7 @@ function Th({ children, onClick }) {
 function TagBadge({ tag }) {
   const colors = {
     endurance: 'var(--accent)',
-    steady: 'var(--accent)',
     interval: 'var(--accent-2)',
-    test: 'var(--hot)',
-    warmup: 'var(--ink-2)',
   };
   const color = colors[tag] || 'var(--ink-3)';
   return (
