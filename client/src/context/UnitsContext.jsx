@@ -1,9 +1,25 @@
-import { createContext, useContext, useState, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { api } from '../api.js';
 
 const UnitsContext = createContext();
 
 export function UnitsProvider({ children }) {
   const [units, setUnits] = useState('pace');
+
+  useEffect(() => {
+    api.getSettings()
+      .then(settings => {
+        if (['pace', 'watts', 'calhr'].includes(settings.units)) {
+          setUnits(settings.units);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const updateUnits = useCallback((nextUnits) => {
+    setUnits(nextUnits);
+    api.updateSettings({ units: nextUnits }).catch(() => {});
+  }, []);
 
   const formatPace = useCallback((paceMs) => {
     if (!paceMs || paceMs <= 0) return '--';
@@ -53,7 +69,7 @@ export function UnitsProvider({ children }) {
   }, []);
 
   return (
-    <UnitsContext.Provider value={{ units, setUnits, formatPace, formatDistance, formatDistanceFull, formatTime }}>
+    <UnitsContext.Provider value={{ units, setUnits: updateUnits, formatPace, formatDistance, formatDistanceFull, formatTime }}>
       {children}
     </UnitsContext.Provider>
   );

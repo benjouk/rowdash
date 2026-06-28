@@ -34,11 +34,16 @@ export default function PBStrip() {
   return (
     <div className={styles.pbStrip}>
       {pbs.map(pb => (
-        <div key={pb.distance} className={styles.pbCard}>
+        <div key={pb.distance} className={`${styles.pbCard} ${pb.prediction?.window_start ? styles.pbCardPredicted : ''}`}>
           <span className={styles.pbDistance}>{DISTANCE_LABELS[pb.distance] || `${pb.distance}m`}</span>
           <span className={styles.pbTime}>{formatTime(pb.time_ms)}</span>
           <span className={styles.pbPace}>{formatPace(pb.pace_ms)}</span>
           <span className={styles.pbDate}>{new Date(pb.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' })}</span>
+          {pb.prediction?.window_start && (
+            <span className={styles.pbPrediction}>
+              Window {new Date(pb.prediction.window_start).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+            </span>
+          )}
         </div>
       ))}
     </div>

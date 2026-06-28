@@ -67,6 +67,11 @@
   gap: var(--space-1);
 }
 
+.pbCardPredicted {
+  border-color: var(--hot);
+  background: var(--hot-bg);
+}
+
 .pbDistance {
   font-family: var(--font-display);
   font-size: 0.75rem;
@@ -92,6 +97,12 @@
 .pbDate {
   font-size: 0.65rem;
   color: var(--ink-3);
+}
+
+.pbPrediction {
+  font-size: 0.65rem;
+  color: var(--hot);
+  font-weight: 600;
 }
 
 .metricsBar {

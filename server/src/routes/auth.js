@@ -5,6 +5,9 @@ import {
   exchangeCodeForTokens,
   storeTokens,
   isAuthenticated,
+  createAuthSession,
+  hasValidSession,
+  clearAuthSession,
   getUserInfo,
   clearAuth,
   fetchC2Api,
@@ -33,6 +36,7 @@ router.get('/callback', async (req, res) => {
 
     const tokens = await exchangeCodeForTokens(code);
     storeTokens(tokens);
+    createAuthSession(res);
 
     const userInfo = await fetchC2Api('/api/users/me', tokens.access_token);
     db.prepare("INSERT OR REPLACE INTO sync_state (key, value, updated_at) VALUES ('user_info', ?, datetime('now'))").run(
@@ -50,13 +54,19 @@ router.get('/callback', async (req, res) => {
 });
 
 router.get('/status', (req, res) => {
+  const connected = isAuthenticated();
+  const authenticated = process.env.NODE_ENV !== 'production'
+    ? connected
+    : connected && hasValidSession(req);
   res.json({
-    authenticated: isAuthenticated(),
-    user: getUserInfo(),
+    authenticated,
+    connected,
+    user: authenticated ? getUserInfo() : null,
   });
 });
 
 router.post('/logout', (req, res) => {
+  clearAuthSession(res);
   clearAuth();
   res.json({ ok: true });
 });
@@ -67,10 +77,12 @@ if (process.env.NODE_ENV !== 'production') {
     const upsert = db.prepare(
       "INSERT OR REPLACE INTO sync_state (key, value, updated_at) VALUES (?, ?, datetime('now'))"
     );
+    storeTokens({
+      access_token: 'mock-token',
+      refresh_token: 'mock-refresh',
+      expires_in: 3600,
+    });
     db.transaction(() => {
-      upsert.run('access_token', 'mock-token');
-      upsert.run('refresh_token', 'mock-refresh');
-      upsert.run('token_expires_at', new Date(Date.now() + 3600000).toISOString());
       upsert.run('user_info', JSON.stringify({
         id: 1,
         username: 'mockrower',
@@ -78,6 +90,7 @@ if (process.env.NODE_ENV !== 'production') {
         last_name: 'Rower',
       }));
     })();
+    createAuthSession(res);
     res.redirect('/');
   });
 }

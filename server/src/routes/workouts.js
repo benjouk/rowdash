@@ -47,7 +47,10 @@ router.get('/', (req, res) => {
   `).all(...params, lim, off);
 
   res.json({
-    data: rows.map(formatWorkout),
+    data: rows.map(row => ({
+      ...formatWorkout(row),
+      pace_profile: getPaceProfile(db, row.id),
+    })),
     meta: { total, limit: lim, offset: off },
   });
 });
@@ -113,6 +116,27 @@ function formatWorkout(row) {
       drag_delta: row.drag_delta,
     },
   };
+}
+
+function getPaceProfile(db, workoutId) {
+  const strokes = db.prepare(`
+    SELECT pace_ms FROM strokes
+    WHERE workout_id = ? AND pace_ms > 0
+    ORDER BY stroke_number
+  `).all(workoutId).map(row => row.pace_ms);
+
+  if (strokes.length >= 2) {
+    const step = Math.max(1, Math.floor(strokes.length / 24));
+    return strokes.filter((_, index) => index % step === 0).slice(0, 24);
+  }
+
+  const intervals = db.prepare(`
+    SELECT pace_ms FROM intervals
+    WHERE workout_id = ? AND pace_ms > 0
+    ORDER BY interval_index
+  `).all(workoutId).map(row => row.pace_ms);
+
+  return intervals.length >= 2 ? intervals : [];
 }
 
 export default router;
