@@ -15,7 +15,7 @@ export function getAuthorizationUrl() {
     client_id: C2_CLIENT_ID,
     redirect_uri: C2_REDIRECT_URI,
     response_type: 'code',
-    scope: 'user:read results:read',
+    scope: 'user:read,results:read',
     state,
   });
   return `${C2_API_BASE}/oauth/authorize?${params}`;
