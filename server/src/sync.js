@@ -264,16 +264,23 @@ export async function runStrokeEnrichment() {
   }
 }
 
+let syncScheduleStarted = false;
+
 export function startSyncSchedule() {
+  if (syncScheduleStarted) return;
+  syncScheduleStarted = true;
+
   const interval = parseInt(process.env.SYNC_INTERVAL_MINUTES || '15', 10);
 
   cron.schedule(`*/${interval} * * * *`, () => {
+    console.log('[cron] Running incremental sync');
     runIncrementalSync().catch(err => console.error('Scheduled sync failed:', err));
   });
 
   cron.schedule('*/5 * * * *', () => {
+    console.log('[cron] Running stroke enrichment');
     runStrokeEnrichment().catch(err => console.error('Stroke enrichment failed:', err));
   });
 
-  console.log(`Sync scheduled every ${interval} minutes`);
+  console.log(`Sync scheduled: incremental every ${interval}min, stroke enrichment every 5min`);
 }

@@ -124,34 +124,32 @@ export function computeFitnessLog() {
 
 function estimateTrainingLoad(workout) {
   if (!workout.time_ms || workout.time_ms <= 0) return 0;
-  const durationMin = workout.time_ms / 60000;
-  const intensityFactor = workout.pace_ms && workout.pace_ms > 0
-    ? Math.max(0.5, 120000 / workout.pace_ms)
-    : 1;
-  return durationMin * intensityFactor * (workout.distance / 1000);
+  if (!workout.distance || workout.distance <= 0) return 0;
+
+  const durationHours = workout.time_ms / 3600000;
+  const referencePaceMs = 120000;
+  const paceMs = workout.pace_ms && workout.pace_ms > 0
+    ? workout.pace_ms
+    : Math.round((workout.time_ms / workout.distance) * 500);
+  if (!paceMs || paceMs <= 0) return 0;
+
+  const intensityFactor = referencePaceMs / paceMs;
+  return durationHours * Math.pow(intensityFactor, 2) * 100;
 }
 
 export function inferWorkoutTag(workout) {
-  const { distance, time_ms, workout_type } = workout;
   const db = getDb();
   const intervalCount = db.prepare(
     "SELECT COUNT(*) as count FROM intervals WHERE workout_id = ? AND type = 'work'"
   ).get(workout.id)?.count || 0;
 
-  if (intervalCount >= 2) return 'interval';
-
-  const testDistances = [2000, 5000, 6000, 10000];
-  if (testDistances.includes(distance) && intervalCount === 0) return 'test';
-
-  if (distance < 2000 && time_ms < 600000) return 'warmup';
-
-  return 'endurance';
+  return intervalCount >= 2 ? 'interval' : 'steady';
 }
 
 export function tagAllWorkouts() {
   const db = getDb();
   const workouts = db.prepare(
-    'SELECT id, distance, time_ms, workout_type FROM workouts WHERE inferred_tag IS NULL'
+    'SELECT id, distance, time_ms, workout_type FROM workouts'
   ).all();
 
   const update = db.prepare('UPDATE workouts SET inferred_tag = ? WHERE id = ?');

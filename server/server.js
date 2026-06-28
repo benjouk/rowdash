@@ -68,6 +68,7 @@ app.get('*', (req, res, next) => {
 
 app.use(errorHandler);
 
+recomputePacesIfMissing();
 tagAllWorkouts();
 computeAllMetrics();
 computeFitnessLog();
@@ -75,8 +76,6 @@ computeFitnessLog();
 if (isAuthenticated()) {
   startSyncSchedule();
 }
-
-recomputePacesIfMissing();
 
 function recomputePacesIfMissing() {
   const db = getDb();

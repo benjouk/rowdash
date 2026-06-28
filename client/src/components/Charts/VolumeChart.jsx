@@ -1,21 +1,24 @@
 import { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { api } from '../../api.js';
+import { useTimeRange } from '../../context/TimeRangeContext.jsx';
 import styles from './Charts.module.css';
 
 export default function VolumeChart() {
   const [data, setData] = useState([]);
+  const { from, to } = useTimeRange();
 
   useEffect(() => {
-    api.getTrends({ metric: 'volume', period: '12w' })
+    const params = { metric: 'volume', period: 'all' };
+    if (from) params.from = from;
+    if (to) params.to = to;
+    api.getTrends(params)
       .then(d => {
         const rows = d.weekly_volume || [];
-        if (rows.length > 0) return setData(rows);
-        return api.getTrends({ metric: 'volume', period: 'all' })
-          .then(d2 => setData((d2.weekly_volume || []).slice(-12)));
+        setData(from ? rows : rows.slice(-12));
       })
       .catch(() => {});
-  }, []);
+  }, [from, to]);
 
   if (data.length === 0) return null;
 
@@ -51,7 +54,7 @@ export default function VolumeChart() {
             labelFormatter={w => `Week ${w.split('-W')[1] || w}`}
           />
           <ReferenceLine y={avg} stroke="var(--ink-3)" strokeDasharray="3 3" />
-          <Bar dataKey="endurance_m" stackId="a" fill="var(--accent)" radius={[0, 0, 0, 0]} />
+          <Bar dataKey="steady_m" stackId="a" fill="var(--accent)" radius={[0, 0, 0, 0]} />
           <Bar dataKey="interval_m" stackId="a" fill="var(--accent-2)" radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>

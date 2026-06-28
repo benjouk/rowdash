@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Sun, Moon, Activity } from 'lucide-react';
+import { Sun, Moon } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext.jsx';
 import { useSync } from '../../context/SyncContext.jsx';
 import { useUnits } from '../../context/UnitsContext.jsx';
+import { useTimeRange } from '../../context/TimeRangeContext.jsx';
 import { api } from '../../api.js';
 import PaceTrace from './PaceTrace.jsx';
 import styles from './Ticker.module.css';
@@ -12,19 +13,20 @@ export default function Ticker() {
   const { toggleTheme, theme } = useTheme();
   const { syncStatus } = useSync();
   const { formatPace, formatDistanceFull } = useUnits();
+  const { rangeKey, setRange, from, to, PRESETS } = useTimeRange();
   const [summary, setSummary] = useState(null);
   const [paceTrend, setPaceTrend] = useState(null);
 
   useEffect(() => {
-    api.getSummary().then(setSummary).catch(() => {});
-    api.getTrends({ metric: 'pace', period: '90d' }).then(data => {
+    const params = {};
+    if (from) params.from = from;
+    if (to) params.to = to;
+    api.getSummary(params).then(setSummary).catch(() => {});
+    api.getTrends({ metric: 'pace', period: 'all', ...params }).then(data => {
       const rows = data.pace_trend || [];
-      if (rows.length > 0) return setPaceTrend(rows.slice(-30));
-      return api.getTrends({ metric: 'pace', period: 'all' }).then(d2 => {
-        setPaceTrend((d2.pace_trend || []).slice(-30));
-      });
+      setPaceTrend(rows.slice(-30));
     }).catch(() => {});
-  }, []);
+  }, [from, to]);
 
   const isSyncing = syncStatus?.status === 'syncing';
 
@@ -58,6 +60,16 @@ export default function Ticker() {
       <div className={styles.traceContainer}>
         <PaceTrace data={paceTrend} />
       </div>
+
+      <select
+        className={styles.rangeSelect}
+        value={rangeKey}
+        onChange={e => setRange(e.target.value)}
+      >
+        {Object.entries(PRESETS).map(([k, label]) => (
+          <option key={k} value={k}>{label}</option>
+        ))}
+      </select>
 
       <nav className={styles.nav}>
         <NavLink to="/" end className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`}>

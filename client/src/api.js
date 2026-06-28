@@ -24,9 +24,9 @@ export const api = {
   getWorkouts: (params = {}) => request(`/api/workouts?${new URLSearchParams(params)}`),
   getWorkout: (id) => request(`/api/workouts/${id}`),
 
-  getSummary: () => request('/api/stats/summary'),
+  getSummary: (params = {}) => request(`/api/stats/summary?${new URLSearchParams(params)}`),
   getTrends: (params = {}) => request(`/api/stats/trends?${new URLSearchParams(params)}`),
-  getPersonalBests: () => request('/api/stats/personal-bests'),
+  getPersonalBests: (params = {}) => request(`/api/stats/personal-bests?${new URLSearchParams(params)}`),
   getFitness: (params = {}) => request(`/api/stats/fitness?${new URLSearchParams(params)}`),
   getCompare: (id1, id2) => request(`/api/stats/compare?ids=${id1},${id2}`),
   getDecayCurve: (params = {}) => request(`/api/stats/decay-curve?${new URLSearchParams(params)}`),
