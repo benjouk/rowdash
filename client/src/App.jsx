@@ -8,6 +8,7 @@ import Progress from './views/Progress.jsx';
 import Workouts from './views/Workouts.jsx';
 import Settings from './views/Settings.jsx';
 import Connect from './views/Connect.jsx';
+import styles from './App.module.css';
 
 export default function App() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -28,20 +29,13 @@ export default function App() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div className={styles.appShell}>
       <Ticker />
-      <div style={{
-        display: 'flex', flex: 1, marginTop: 'var(--ticker-height)',
-        maxWidth: 1400, marginLeft: 'auto', marginRight: 'auto', width: '100%',
-      }}>
-        <aside aria-label="Recent Sessions" style={{
-          width: 'var(--feed-width)', flexShrink: 0, borderRight: '1px solid var(--rule)',
-          overflowY: 'auto', height: 'calc(100vh - var(--ticker-height))',
-          position: 'sticky', top: 'var(--ticker-height)',
-        }}>
+      <div className={styles.layout}>
+        <aside aria-label="Recent Sessions" className={styles.feed}>
           <FeedPanel />
         </aside>
-        <main style={{ flex: 1, minWidth: 0, padding: 'var(--space-6)' }}>
+        <main className={styles.main}>
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/session/:id" element={<Session />} />
