@@ -4,32 +4,6 @@
 
 ---
 
-## Status Update (2026-06-30)
-
-### Implementation Progress: **75% Complete** (Phases 1-4 ✅, Phase 5 Stubbed ❌, Phase 6 Partial ⚠️)
-
-**Latest Work (PR #20):** Fixed 6 critical security/data integrity issues:
-- SESSION_SECRET now generated safely (no weak defaults)
-- Stroke enrichment cursor persists (no lost progress on restart)
-- Input validation middleware prevents 500 errors
-- Progress endpoint returns ETA for enrichment
-
-**Status by Phase:**
-| Phase | Scope | Status | Notes |
-|-------|-------|--------|-------|
-| 1 | Foundation (DB, OAuth, sync) | ✅ Complete | OAuth working, incremental sync, health endpoint |
-| 2 | Core UI (Dashboard, Session, Feed) | ✅ Complete | All views built, Broadcast design implemented |
-| 3 | Analytics (metrics, CTL/ATL/TSB, PB predictions) | ✅ Complete | All calculations working, decay curve endpoint live |
-| 4 | QOL (enrichment, manual sync, dark mode) | ✅ Complete | Enrichment working, cursor now persists |
-| 5 | AI Integration (Claude, session notes, NL query) | ❌ Stubbed | Routes return 501; infrastructure ready, logic not implemented |
-| 6 | Polish (mobile, shortcuts, export, accessibility) | ⚠️ Partial | Dark mode done; mobile unclear; shortcuts/export/alerts not done |
-
-**Blockers for Launch:** None (all Phase 1-4 features complete and tested)
-
-**Decision Needed:** Defer AI features (Phase 5) to v1.1 or include in v1.0?
-
----
-
 ## 1. What is RowDash?
 
 RowDash is a self-hosted web dashboard for Concept2 RowErg users. It pulls workout data from the Concept2 Logbook API, stores it locally in SQLite, and presents it through a data-rich, AI-enhanced interface designed for tracking progress, comparing sessions, forecasting performance, and understanding training trends.

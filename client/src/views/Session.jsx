@@ -26,13 +26,11 @@ import {
   Share2,
   Timer,
   Zap,
-  GitCompare,
 } from 'lucide-react';
 import { api } from '../api.js';
 import { useUnits } from '../context/UnitsContext.jsx';
 import PaceRibbon from '../components/PaceRibbon/PaceRibbon.jsx';
 import Sparkline from '../components/Feed/Sparkline.jsx';
-import ComparisonOverlay from '../components/Charts/ComparisonOverlay.jsx';
 import styles from './Session.module.css';
 
 export default function Session() {
@@ -42,17 +40,10 @@ export default function Session() {
   const [loading, setLoading] = useState(true);
   const [enriching, setEnriching] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [compareMode, setCompareMode] = useState(false);
-  const [compareId, setCompareId] = useState(null);
-  const [comparisonWorkout, setComparisonWorkout] = useState(null);
-  const [comparisonLoading, setComparisonLoading] = useState(false);
-  const [compareOptions, setCompareOptions] = useState([]);
   const { units, formatPace, formatDistanceFull, formatTime } = useUnits();
 
   useEffect(() => {
     setLoading(true);
-    setCompareMode(false);
-    setCompareId(null);
     api.getWorkout(id)
       .then(data => {
         setWorkout(data);
@@ -64,23 +55,10 @@ export default function Session() {
             .catch(() => {})
             .finally(() => setEnriching(false));
         }
-
-        // Load comparison options: other workouts of the same distance (±100m tolerance)
-        // This range accommodates slight variations in actual distance rowed vs. workout distance target
-        return api.getWorkouts({ min_distance: data.distance - 100, limit: 50 });
-      })
-      .then(data => {
-        if (workout) {
-          // Filter to workouts within ±100m and exclude current workout, limit to 20 most recent
-          const options = data.workouts
-            .filter(w => w.id !== workout.id && Math.abs(w.distance - workout.distance) < 100)
-            .slice(0, 20);
-          setCompareOptions(options);
-        }
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [id, workout?.id]);
+  }, [id]);
 
   const handleShare = useCallback(async () => {
     if (!workout) return;
@@ -101,35 +79,11 @@ export default function Session() {
     }
   }, [formatDistanceFull, formatPace, formatTime, workout]);
 
-  const handleCompare = useCallback((comparisonWorkoutId) => {
-    setComparisonLoading(true);
-    setCompareId(comparisonWorkoutId);
-    api.getCompare(id, comparisonWorkoutId)
-      .then(data => {
-        setComparisonWorkout(data.workouts[1]);
-        setCompareMode(true);
-      })
-      .catch(() => {
-        setCompareId(null);
-      })
-      .finally(() => setComparisonLoading(false));
-  }, [id]);
-
-  const handleExitComparison = useCallback(() => {
-    setCompareMode(false);
-    setCompareId(null);
-    setComparisonWorkout(null);
-  }, []);
-
   const strokeData = useMemo(() => buildStrokeSeries(workout?.strokes), [workout?.strokes]);
   const splitRows = useMemo(() => buildSplitRows(workout), [workout]);
 
   if (loading) return <div style={{ padding: 'var(--space-6)', color: 'var(--ink-3)' }}>Loading...</div>;
   if (!workout) return <div style={{ padding: 'var(--space-6)', color: 'var(--ink-3)' }}>Workout not found</div>;
-
-  if (compareMode && comparisonWorkout) {
-    return <ComparisonOverlay workout1={workout} workout2={comparisonWorkout} onBack={handleExitComparison} />;
-  }
 
   const date = new Date(workout.date);
   const tag = workout.inferred_tag;
@@ -172,33 +126,9 @@ export default function Session() {
         <button onClick={() => navigate(-1)} className={styles.backButton}>
           <ArrowLeft size={15} /> Back
         </button>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 'var(--space-3)' }}>
-          {compareOptions.length > 0 && (
-            <div className={styles.compareWrapper}>
-              <select
-                onChange={(e) => {
-                  if (e.target.value) {
-                    handleCompare(parseInt(e.target.value, 10));
-                  }
-                }}
-                value={compareId || ''}
-                disabled={comparisonLoading}
-                className={styles.compareSelect}
-              >
-                <option value="">Compare with...</option>
-                {compareOptions.map(w => (
-                  <option key={w.id} value={w.id}>
-                    {formatDateShort(new Date(w.date))} · {formatTime(w.time_ms)}
-                  </option>
-                ))}
-              </select>
-              <GitCompare size={15} className={styles.compareIcon} />
-            </div>
-          )}
-          <button onClick={handleShare} className={styles.iconButton} title={copied ? 'Link copied' : 'Share workout'} aria-label="Share workout">
-            <Share2 size={15} />
-          </button>
-        </div>
+        <button onClick={handleShare} className={styles.iconButton} title={copied ? 'Link copied' : 'Share workout'} aria-label="Share workout">
+          <Share2 size={15} />
+        </button>
       </div>
 
       <header className={styles.hero}>
