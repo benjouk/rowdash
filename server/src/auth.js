@@ -5,9 +5,29 @@ const C2_API_BASE = process.env.C2_API_BASE || 'https://log.concept2.com';
 const C2_CLIENT_ID = process.env.C2_CLIENT_ID || '';
 const C2_CLIENT_SECRET = process.env.C2_CLIENT_SECRET || '';
 const C2_REDIRECT_URI = process.env.C2_REDIRECT_URI || 'http://localhost:3100/auth/callback';
-const SESSION_SECRET = process.env.SESSION_SECRET || 'change-me-in-production';
 const AUTH_COOKIE = 'rowdash_session';
 const ENCRYPTED_PREFIX = 'enc:v1:';
+
+function initSessionSecret() {
+  if (process.env.SESSION_SECRET) {
+    return process.env.SESSION_SECRET;
+  }
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('SESSION_SECRET environment variable is required in production. Generate with: openssl rand -base64 32');
+  }
+  const db = getDb();
+  let secret = db.prepare("SELECT value FROM sync_state WHERE key = 'generated_session_secret'").get()?.value;
+  if (!secret) {
+    secret = crypto.randomBytes(32).toString('base64');
+    db.prepare("INSERT OR REPLACE INTO sync_state (key, value, updated_at) VALUES ('generated_session_secret', ?, datetime('now'))").run(secret);
+  }
+  return secret;
+}
+
+let SESSION_SECRET;
+export function initAuth() {
+  SESSION_SECRET = initSessionSecret();
+}
 
 function upsertSyncState(key, value) {
   const db = getDb();

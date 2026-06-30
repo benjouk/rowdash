@@ -1,7 +1,11 @@
 import { Router } from 'express';
 import { getDb } from '../db.js';
+import { validateDateRange, validatePaginationParams } from '../middleware/validate.js';
 
 const router = Router();
+
+router.use(validateDateRange);
+router.use(validatePaginationParams);
 
 router.get('/summary', (req, res) => {
   const db = getDb();

@@ -1,8 +1,19 @@
 import { Router } from 'express';
 import { getDb } from '../db.js';
 import { enrichSingleWorkout } from '../sync.js';
+import {
+  validateDateRange,
+  validatePaginationParams,
+  validateTag,
+  validateDistanceRange,
+} from '../middleware/validate.js';
 
 const router = Router();
+
+router.use(validateDateRange);
+router.use(validatePaginationParams);
+router.use(validateTag);
+router.use(validateDistanceRange);
 
 const SORT_ALLOWLIST = {
   date_desc: 'w.date DESC',
