@@ -204,8 +204,16 @@ function runPostSyncAnalytics() {
 }
 
 async function fetchAndStoreStrokes(db, id, token) {
-  const detail = await fetchC2Api(`/api/users/me/results/${id}`, token);
-  const strokeData = detail.strokes || detail.stroke_data || [];
+  let strokeData = [];
+
+  try {
+    const strokeResp = await fetchC2Api(`/api/users/me/results/${id}/strokes`, token);
+    strokeData = strokeResp.data || strokeResp || [];
+    if (!Array.isArray(strokeData)) strokeData = [];
+  } catch {
+    const detail = await fetchC2Api(`/api/users/me/results/${id}`, token);
+    strokeData = detail.strokes || detail.stroke_data || [];
+  }
 
   const strokeStmt = db.prepare(`
     INSERT OR IGNORE INTO strokes (
@@ -237,9 +245,9 @@ async function fetchAndStoreStrokes(db, id, token) {
         );
       });
     })();
+    db.prepare('UPDATE workouts SET has_stroke_data = 1 WHERE id = ?').run(id);
   }
 
-  db.prepare('UPDATE workouts SET has_stroke_data = 1 WHERE id = ?').run(id);
   return { strokes: strokeData.length };
 }
 
@@ -254,6 +262,18 @@ export async function enrichSingleWorkout(id) {
   const result = await fetchAndStoreStrokes(db, id, token);
   console.log(`Manual enrichment for workout ${id}: ${result.strokes} strokes`);
   return result;
+}
+
+export function resetStrokeFlags() {
+  const db = getDb();
+  const updated = db.prepare(`
+    UPDATE workouts SET has_stroke_data = 0
+    WHERE has_stroke_data = 1
+    AND id NOT IN (SELECT DISTINCT workout_id FROM strokes)
+  `).run();
+  if (updated.changes > 0) {
+    console.log(`Reset has_stroke_data for ${updated.changes} workouts with no actual strokes`);
+  }
 }
 
 export async function runStrokeEnrichment() {
@@ -286,6 +306,8 @@ let syncScheduleStarted = false;
 export function startSyncSchedule() {
   if (syncScheduleStarted) return;
   syncScheduleStarted = true;
+
+  resetStrokeFlags();
 
   const interval = parseInt(process.env.SYNC_INTERVAL_MINUTES || '15', 10);
 

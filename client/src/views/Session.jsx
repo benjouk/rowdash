@@ -47,7 +47,7 @@ export default function Session() {
     api.getWorkout(id)
       .then(data => {
         setWorkout(data);
-        if (!data.has_stroke_data) {
+        if (!data.strokes?.length && !data.pace_profile?.length) {
           setEnriching(true);
           api.enrichWorkout(id)
             .then(() => api.getWorkout(id))
