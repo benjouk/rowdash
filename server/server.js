@@ -7,7 +7,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { initDb, getDb } from './src/db.js';
 import { startSyncSchedule } from './src/sync.js';
-import { hasValidSession, isAuthenticated } from './src/auth.js';
+import { initAuth, hasValidSession, isAuthenticated } from './src/auth.js';
 import { errorHandler } from './src/middleware/error.js';
 import { seedDatabase } from './src/seed.js';
 import { tagAllWorkouts, computeAllMetrics, computeFitnessLog, computePredictions } from './src/analytics.js';
@@ -25,6 +25,7 @@ const PORT = parseInt(process.env.PORT || '3000', 10);
 const app = express();
 
 initDb();
+initAuth();
 
 if (process.env.NODE_ENV !== 'production') {
   seedDatabase();
@@ -41,10 +42,11 @@ app.use('/auth', authRouter);
 
 function requireAuth(req, res, next) {
   if (process.env.NODE_ENV !== 'production') {
+    // Dev mode: bypass auth. In dev, use /auth/mock-login to get a session
     return next();
   }
   if (!isAuthenticated() || !hasValidSession(req)) {
-    return res.status(401).json({ error: 'Not authenticated' });
+    return res.status(401).json({ error: 'Not authenticated. Please visit /auth/login to connect Concept2.' });
   }
   next();
 }

@@ -12,7 +12,8 @@ services:
       - C2_REDIRECT_URI=${C2_REDIRECT_URI:-http://localhost:3100/auth/callback}
       - SYNC_INTERVAL_MINUTES=${SYNC_INTERVAL_MINUTES:-15}
       - CLAUDE_API_KEY=${CLAUDE_API_KEY:-}
-      - SESSION_SECRET=${SESSION_SECRET:-change-me-in-production}
+      - SESSION_SECRET=${SESSION_SECRET}
+      - NODE_ENV=${NODE_ENV:-production}
     restart: unless-stopped
 
 volumes:

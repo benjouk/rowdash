@@ -20,12 +20,19 @@ export function getSyncStatus() {
   const db = getDb();
   const workoutCount = db.prepare('SELECT COUNT(*) as count FROM workouts').get().count;
   const enrichedCount = db.prepare('SELECT COUNT(*) as count FROM workouts WHERE has_stroke_data = 1').get().count;
+  const remaining = workoutCount - enrichedCount;
+
+  // Estimate based on 10 workouts per 5 minutes (1 req/sec + processing)
+  const estimatedSecondsRemaining = remaining > 0 ? Math.ceil((remaining / 10) * 300) : 0;
 
   return {
     status: getSyncStateValue('sync_status') || 'idle',
     last_completed: getSyncStateValue('last_sync_completed'),
     total_workouts: workoutCount,
-    enrichment_progress: `${enrichedCount}/${workoutCount}`,
+    enriched_workouts: enrichedCount,
+    remaining_workouts: remaining,
+    enrichment_progress: workoutCount > 0 ? Math.round((enrichedCount / workoutCount) * 100) : 100,
+    estimated_seconds_remaining: estimatedSecondsRemaining,
     sync_progress: getSyncStateValue('sync_progress'),
   };
 }
@@ -294,9 +301,11 @@ export async function runStrokeEnrichment() {
     try {
       const result = await fetchAndStoreStrokes(db, id, token);
       console.log(`  Workout ${id}: ${result.strokes} strokes`);
+      setSyncState('last_enriched_workout_id', String(id));
       await delay(1000);
     } catch (err) {
       console.error(`Stroke enrichment failed for workout ${id}:`, err);
+      setSyncState('last_enriched_workout_id', String(id));
     }
   }
 }
