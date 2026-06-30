@@ -34,6 +34,13 @@ export default function App() {
         display: 'flex', flex: 1, marginTop: 'var(--ticker-height)',
         maxWidth: 1400, marginLeft: 'auto', marginRight: 'auto', width: '100%',
       }}>
+        <aside aria-label="Recent Sessions" style={{
+          width: 'var(--feed-width)', flexShrink: 0, borderRight: '1px solid var(--rule)',
+          overflowY: 'auto', height: 'calc(100vh - var(--ticker-height))',
+          position: 'sticky', top: 'var(--ticker-height)',
+        }}>
+          <FeedPanel />
+        </aside>
         <main style={{ flex: 1, minWidth: 0, padding: 'var(--space-6)' }}>
           <Routes>
             <Route path="/" element={<Dashboard />} />
@@ -44,13 +51,6 @@ export default function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>
-        <aside style={{
-          width: 'var(--feed-width)', flexShrink: 0, borderLeft: '1px solid var(--rule)',
-          overflowY: 'auto', height: 'calc(100vh - var(--ticker-height))',
-          position: 'sticky', top: 'var(--ticker-height)',
-        }}>
-          <FeedPanel />
-        </aside>
       </div>
     </div>
   );
