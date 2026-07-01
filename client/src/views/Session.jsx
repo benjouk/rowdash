@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Area,
@@ -27,6 +27,7 @@ import {
   Timer,
   Zap,
   GitCompare,
+  ChevronDown,
 } from 'lucide-react';
 import { api } from '../api.js';
 import { useUnits } from '../context/UnitsContext.jsx';
@@ -47,7 +48,9 @@ export default function Session() {
   const [comparisonWorkout, setComparisonWorkout] = useState(null);
   const [comparisonLoading, setComparisonLoading] = useState(false);
   const [compareOptions, setCompareOptions] = useState([]);
-  const { units, formatPace, formatDistanceFull, formatTime } = useUnits();
+  const { units, formatPace, formatDistance, formatDistanceFull, formatTime } = useUnits();
+  const [compareMenuOpen, setCompareMenuOpen] = useState(false);
+  const compareMenuRef = useRef(null);
 
   useEffect(() => {
     setLoading(true);
@@ -102,6 +105,7 @@ export default function Session() {
   }, [formatDistanceFull, formatPace, formatTime, workout]);
 
   const handleCompare = useCallback((comparisonWorkoutId) => {
+    setCompareMenuOpen(false);
     setComparisonLoading(true);
     setCompareId(comparisonWorkoutId);
     api.getCompare(id, comparisonWorkoutId)
@@ -114,6 +118,26 @@ export default function Session() {
       })
       .finally(() => setComparisonLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    if (!compareMenuOpen) return;
+
+    const handlePointerDown = (event) => {
+      if (compareMenuRef.current && !compareMenuRef.current.contains(event.target)) {
+        setCompareMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') setCompareMenuOpen(false);
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [compareMenuOpen]);
 
   const handleExitComparison = useCallback(() => {
     setCompareMode(false);
@@ -174,25 +198,54 @@ export default function Session() {
         </button>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 'var(--space-3)' }}>
           {compareOptions.length > 0 && (
-            <div className={styles.compareWrapper}>
-              <select
-                onChange={(e) => {
-                  if (e.target.value) {
-                    handleCompare(parseInt(e.target.value, 10));
-                  }
-                }}
-                value={compareId || ''}
+            <div className={styles.compareWrapper} ref={compareMenuRef}>
+              <button
+                type="button"
+                onClick={() => setCompareMenuOpen(open => !open)}
                 disabled={comparisonLoading}
-                className={styles.compareSelect}
+                className={styles.compareButton}
+                aria-haspopup="listbox"
+                aria-expanded={compareMenuOpen}
               >
-                <option value="">Compare with...</option>
-                {compareOptions.map(w => (
-                  <option key={w.id} value={w.id}>
-                    {formatDateShort(new Date(w.date))} · {formatTime(w.time_ms)}
-                  </option>
-                ))}
-              </select>
-              <GitCompare size={15} className={styles.compareIcon} />
+                {comparisonLoading
+                  ? <Loader2 size={15} className={styles.spinner} />
+                  : <GitCompare size={15} />}
+                <span>Compare</span>
+                <ChevronDown size={13} className={styles.compareChevron} />
+              </button>
+              {compareMenuOpen && (
+                <ul className={styles.compareMenu} role="listbox">
+                  {compareOptions.map(w => {
+                    const isInterval = w.inferred_tag === 'interval';
+                    return (
+                      <li key={w.id} role="option" aria-selected={compareId === w.id}>
+                        <button
+                          type="button"
+                          className={styles.compareOption}
+                          onClick={() => handleCompare(w.id)}
+                        >
+                          <span className={styles.compareOptionDate}>
+                            <CalendarDays size={12} />
+                            {formatDateShort(new Date(w.date))}
+                          </span>
+                          <span className={styles.compareOptionStats}>
+                            <span>{formatDistance(w.distance)}</span>
+                            <span className={styles.compareOptionDot}>·</span>
+                            <span>{formatPace(w.pace_ms)}</span>
+                            <span className={styles.compareOptionDot}>·</span>
+                            <span>{formatTime(w.time_ms)}</span>
+                          </span>
+                          {w.inferred_tag && (
+                            <span className={`${styles.tag} ${isInterval ? styles.tagInterval : ''} ${styles.compareOptionTag}`}>
+                              {w.inferred_tag}
+                            </span>
+                          )}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </div>
           )}
           <button onClick={handleShare} className={styles.iconButton} title={copied ? 'Link copied' : 'Share workout'} aria-label="Share workout">
