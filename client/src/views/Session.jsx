@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Area,
@@ -26,11 +26,14 @@ import {
   Share2,
   Timer,
   Zap,
+  GitCompare,
+  ChevronDown,
 } from 'lucide-react';
 import { api } from '../api.js';
 import { useUnits } from '../context/UnitsContext.jsx';
 import PaceRibbon from '../components/PaceRibbon/PaceRibbon.jsx';
 import Sparkline from '../components/Feed/Sparkline.jsx';
+import ComparisonOverlay from '../components/Charts/ComparisonOverlay.jsx';
 import styles from './Session.module.css';
 
 export default function Session() {
@@ -40,14 +43,23 @@ export default function Session() {
   const [loading, setLoading] = useState(true);
   const [enriching, setEnriching] = useState(false);
   const [copied, setCopied] = useState(false);
-  const { units, formatPace, formatDistanceFull, formatTime } = useUnits();
+  const [compareMode, setCompareMode] = useState(false);
+  const [compareId, setCompareId] = useState(null);
+  const [comparisonWorkout, setComparisonWorkout] = useState(null);
+  const [comparisonLoading, setComparisonLoading] = useState(false);
+  const [compareOptions, setCompareOptions] = useState([]);
+  const { units, formatPace, formatDistance, formatDistanceFull, formatTime } = useUnits();
+  const [compareMenuOpen, setCompareMenuOpen] = useState(false);
+  const compareMenuRef = useRef(null);
 
   useEffect(() => {
     setLoading(true);
+    setCompareMode(false);
+    setCompareId(null);
     api.getWorkout(id)
-      .then(data => {
-        setWorkout(data);
-        if (!data.strokes?.length && !data.pace_profile?.length) {
+      .then(currentWorkout => {
+        setWorkout(currentWorkout);
+        if (!currentWorkout.strokes?.length && !currentWorkout.pace_profile?.length) {
           setEnriching(true);
           api.enrichWorkout(id)
             .then(() => api.getWorkout(id))
@@ -55,6 +67,20 @@ export default function Session() {
             .catch(() => {})
             .finally(() => setEnriching(false));
         }
+
+        // Load comparison options: other workouts of the same distance (±100m tolerance)
+        // This range accommodates slight variations in actual distance rowed vs. workout distance target
+        return Promise.all([
+          Promise.resolve(currentWorkout),
+          api.getWorkouts({ min_distance: currentWorkout.distance - 100, limit: 50 }),
+        ]);
+      })
+      .then(([currentWorkout, workoutsData]) => {
+        // Filter to workouts within ±100m and exclude current workout, limit to 20 most recent
+        const options = (workoutsData.data || [])
+          .filter(w => w.id !== currentWorkout.id && Math.abs(w.distance - currentWorkout.distance) < 100)
+          .slice(0, 20);
+        setCompareOptions(options);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -79,11 +105,56 @@ export default function Session() {
     }
   }, [formatDistanceFull, formatPace, formatTime, workout]);
 
+  const handleCompare = useCallback((comparisonWorkoutId) => {
+    setCompareMenuOpen(false);
+    setComparisonLoading(true);
+    setCompareId(comparisonWorkoutId);
+    api.getCompare(id, comparisonWorkoutId)
+      .then(data => {
+        setComparisonWorkout(data.workouts[1]);
+        setCompareMode(true);
+      })
+      .catch(() => {
+        setCompareId(null);
+      })
+      .finally(() => setComparisonLoading(false));
+  }, [id]);
+
+  useEffect(() => {
+    if (!compareMenuOpen) return;
+
+    const handlePointerDown = (event) => {
+      if (compareMenuRef.current && !compareMenuRef.current.contains(event.target)) {
+        setCompareMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') setCompareMenuOpen(false);
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [compareMenuOpen]);
+
+  const handleExitComparison = useCallback(() => {
+    setCompareMode(false);
+    setCompareId(null);
+    setComparisonWorkout(null);
+  }, []);
+
   const strokeData = useMemo(() => buildStrokeSeries(workout?.strokes), [workout?.strokes]);
   const splitRows = useMemo(() => buildSplitRows(workout), [workout]);
 
   if (loading) return <div style={{ padding: 'var(--space-6)', color: 'var(--ink-3)' }}>Loading...</div>;
   if (!workout) return <div style={{ padding: 'var(--space-6)', color: 'var(--ink-3)' }}>Workout not found</div>;
+
+  if (compareMode && comparisonWorkout) {
+    return <ComparisonOverlay workout1={workout} workout2={comparisonWorkout} onBack={handleExitComparison} />;
+  }
 
   const date = new Date(workout.date);
   const tag = workout.inferred_tag;
@@ -126,9 +197,64 @@ export default function Session() {
         <button onClick={() => navigate(-1)} className={styles.backButton}>
           <ArrowLeft size={15} /> Back
         </button>
-        <button onClick={handleShare} className={styles.iconButton} title={copied ? 'Link copied' : 'Share workout'} aria-label="Share workout">
-          <Share2 size={15} />
-        </button>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 'var(--space-3)' }}>
+          {compareOptions.length > 0 && (
+            <div className={styles.compareWrapper} ref={compareMenuRef}>
+              <button
+                type="button"
+                onClick={() => setCompareMenuOpen(open => !open)}
+                disabled={comparisonLoading}
+                className={styles.compareButton}
+                aria-haspopup="listbox"
+                aria-expanded={compareMenuOpen}
+              >
+                {comparisonLoading
+                  ? <Loader2 size={15} className={styles.spinner} />
+                  : <GitCompare size={15} />}
+                <span>Compare</span>
+                <ChevronDown size={13} className={styles.compareChevron} />
+              </button>
+              {compareMenuOpen && (
+                <ul className={styles.compareMenu} role="listbox">
+                  {compareOptions.map(w => {
+                    const isInterval = w.inferred_tag === 'interval';
+                    return (
+                      <li key={w.id} role="option" aria-selected={compareId === w.id}>
+                        <button
+                          type="button"
+                          className={styles.compareOption}
+                          onClick={() => handleCompare(w.id)}
+                        >
+                          <span className={styles.compareOptionRow}>
+                            <span className={styles.compareOptionDate}>
+                              <CalendarDays size={12} />
+                              {formatDateShort(new Date(w.date))}
+                            </span>
+                            {w.inferred_tag && (
+                              <span className={`${styles.tag} ${isInterval ? styles.tagInterval : ''}`}>
+                                {w.inferred_tag}
+                              </span>
+                            )}
+                          </span>
+                          <span className={styles.compareOptionStats}>
+                            <span>{formatDistance(w.distance)}</span>
+                            <span className={styles.compareOptionDot}>·</span>
+                            <span>{formatPace(w.pace_ms)}</span>
+                            <span className={styles.compareOptionDot}>·</span>
+                            <span>{formatTime(w.time_ms)}</span>
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          )}
+          <button onClick={handleShare} className={styles.iconButton} title={copied ? 'Link copied' : 'Share workout'} aria-label="Share workout">
+            <Share2 size={15} />
+          </button>
+        </div>
       </div>
 
       <header className={styles.hero}>
